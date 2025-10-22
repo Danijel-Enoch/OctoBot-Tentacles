@@ -1,8 +1,13 @@
-# Volume Booster Trading Mode - Setup Guide
+# Volume Booster Trading Mode - Complete Setup Guide
 
-## Installation
+## Overview
+The Volume Booster Trading Mode is a custom OctoBot tentacle that rapidly executes buy and sell orders to increase trading volume on selected pairs. This guide follows OctoBot's official tentacle development guidelines.
 
-### 1. Copy Files
+## Installation Methods
+
+### Method 1: Direct Installation (Recommended)
+
+1. **Copy files to OctoBot-Tentacles directory**
 Ensure all files are in the correct locations:
 
 ```
@@ -27,13 +32,32 @@ OctoBot-Tentacles/
         └── VolumeBoosterTradingMode.json
 ```
 
-### 2. Register the Tentacle
-The trading mode should be automatically discovered by OctoBot. If not, ensure:
-- The `__init__.py` file correctly imports `VolumeBoosterTradingMode`
-- The `metadata.json` file lists the correct tentacle name
-- The class extends `AbstractTradingMode`
+2. **Restart OctoBot** for tentacle discovery
 
-### 3. Load the Profile
+3. **Verify installation** in OctoBot web interface:
+   - Go to Configuration > Tentacles
+   - Find "VolumeBoosterTradingMode" in Trading Modes section
+   - Ensure it's available for activation
+
+### Method 2: Tentacle Bundle Installation
+
+1. **Create tentacle bundle** (from OctoBot directory):
+   ```bash
+   python start.py tentacles --pack "../volume_booster_bundle.zip" --directory "path/to/volume_booster_files"
+   ```
+
+2. **Install the bundle**:
+   ```bash
+   python start.py tentacles --install --all --location "../volume_booster_bundle.zip"
+   ```
+
+### Method 3: Single Tentacle Installation
+
+```bash
+python start.py tentacles --single-tentacle-install "path/to/volume_booster_trading_mode" Trading/Mode
+```
+
+## Profile Setup
 1. Start OctoBot
 2. Navigate to Configuration > Profiles
 3. Select "Volume Booster" profile
