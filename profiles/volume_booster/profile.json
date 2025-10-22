@@ -1,0 +1,47 @@
+{
+	"config": {
+		"crypto-currencies": {
+			"Bitcoin": {
+				"enabled": true,
+				"pairs": ["BTC/USDT"]
+			},
+			"Ethereum": {
+				"enabled": false,
+				"pairs": ["ETH/USDT"]
+			}
+		},
+		"exchanges": {
+			"binance": {
+				"enabled": true
+			}
+		},
+		"trader": {
+			"enabled": false,
+			"load-trade-history": false
+		},
+		"trader-simulator": {
+			"enabled": true,
+			"fees": {
+				"maker": 0.1,
+				"taker": 0.1
+			},
+			"starting-portfolio": {
+				"BTC": 1,
+				"USDT": 10000
+			}
+		},
+		"trading": {
+			"reference-market": "USDT",
+			"risk": 1.0
+		}
+	},
+	"profile": {
+		"avatar": "volume_booster_profile.png",
+		"risk": 5,
+		"complexity": 2,
+		"description": "Volume Booster rapidly executes buy and sell orders to increase trading volume on selected pairs. Configure target volume, trade frequency, and order amounts to boost market activity.",
+		"id": "volume_booster",
+		"name": "Volume Booster",
+		"read_only": false
+	}
+}
