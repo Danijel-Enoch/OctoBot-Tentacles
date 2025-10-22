@@ -37,7 +37,7 @@
 	},
 	"profile": {
 		"avatar": "volume_booster_profile.png",
-		"risk": 5,
+		"risk": 3,
 		"complexity": 2,
 		"description": "Volume Booster rapidly executes buy and sell orders to increase trading volume on selected pairs. Configure target volume, trade frequency, and order amounts to boost market activity.",
 		"id": "volume_booster",

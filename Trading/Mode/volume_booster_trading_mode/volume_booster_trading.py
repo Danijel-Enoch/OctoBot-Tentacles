@@ -62,6 +62,18 @@ DEFAULT_MAX_SELL_AMOUNT = 100
 DEFAULT_PRICE_OFFSET_PERCENT = 0.1
 DEFAULT_ENABLE_VOLUME_BOOSTER = True
 
+# User input descriptions
+VOLUME_TARGET_DESC = "Target volume to achieve (in base currency units like USDT)"
+ORDER_TYPE_DESC = "Market orders execute immediately, limit orders wait at specified prices"
+TRADE_FREQUENCY_MIN_DESC = "Minimum seconds between trades (lower = more frequent)"
+TRADE_FREQUENCY_MAX_DESC = "Maximum seconds between trades (creates randomized intervals)"
+MIN_BUY_AMOUNT_DESC = "Minimum amount to buy in quote currency (e.g., USDT)"
+MAX_BUY_AMOUNT_DESC = "Maximum amount to buy in quote currency (e.g., USDT)"
+MIN_SELL_AMOUNT_DESC = "Minimum amount to sell in quote currency (e.g., USDT)"
+MAX_SELL_AMOUNT_DESC = "Maximum amount to sell in quote currency (e.g., USDT)"
+PRICE_OFFSET_PERCENT_DESC = "For limit orders, percentage offset from current price (0.1 = 0.1%)"
+ENABLE_VOLUME_BOOSTER_DESC = "Start/Stop the volume boosting activity"
+
 # Trading mode metadata
 VOLUME_BOOSTER_MODE_NAME = "VolumeBoosterTradingMode"
 
@@ -80,69 +92,60 @@ class VolumeBoosterTradingMode(trading_modes.AbstractTradingMode):
         self.UI.user_input(
             VOLUME_TARGET_KEY, commons_enums.UserInputTypes.FLOAT, DEFAULT_VOLUME_TARGET, inputs,
             min_val=1, max_val=10000000,
-            title="Volume Target",
-            description="Target volume to achieve (in base currency units like USDT)"
+            title=VOLUME_TARGET_DESC
         )
         
         # Order Configuration
         self.UI.user_input(
             ORDER_TYPE_KEY, commons_enums.UserInputTypes.OPTIONS, DEFAULT_ORDER_TYPE, inputs,
             options=["market", "limit"],
-            title="Order Type",
-            description="Market orders execute immediately, limit orders wait at specified prices"
+            title=ORDER_TYPE_DESC
         )
         
         # Frequency Configuration  
         self.UI.user_input(
             TRADE_FREQUENCY_MIN_KEY, commons_enums.UserInputTypes.FLOAT, DEFAULT_TRADE_FREQUENCY_MIN, inputs,
             min_val=0.1, max_val=3600,
-            title="Minimum Trade Frequency (seconds)",
-            description="Minimum seconds between trades (lower = more frequent)"
+            title=TRADE_FREQUENCY_MIN_DESC
         )
         
         self.UI.user_input(
             TRADE_FREQUENCY_MAX_KEY, commons_enums.UserInputTypes.FLOAT, DEFAULT_TRADE_FREQUENCY_MAX, inputs,
             min_val=0.1, max_val=3600,
-            title="Maximum Trade Frequency (seconds)", 
-            description="Maximum seconds between trades (creates randomized intervals)"
+            title=TRADE_FREQUENCY_MAX_DESC
         )
         
         # Buy Amount Configuration
         self.UI.user_input(
             MIN_BUY_AMOUNT_KEY, commons_enums.UserInputTypes.FLOAT, DEFAULT_MIN_BUY_AMOUNT, inputs,
             min_val=0.01, max_val=1000000,
-            title="Minimum Buy Amount",
-            description="Minimum amount to buy in quote currency (e.g., USDT)"
+            title=MIN_BUY_AMOUNT_DESC
         )
         
         self.UI.user_input(
             MAX_BUY_AMOUNT_KEY, commons_enums.UserInputTypes.FLOAT, DEFAULT_MAX_BUY_AMOUNT, inputs,
             min_val=0.01, max_val=1000000,
-            title="Maximum Buy Amount", 
-            description="Maximum amount to buy in quote currency (e.g., USDT)"
+            title=MAX_BUY_AMOUNT_DESC
         )
         
         # Sell Amount Configuration
         self.UI.user_input(
             MIN_SELL_AMOUNT_KEY, commons_enums.UserInputTypes.FLOAT, DEFAULT_MIN_SELL_AMOUNT, inputs,
             min_val=0.01, max_val=1000000,
-            title="Minimum Sell Amount",
-            description="Minimum amount to sell in quote currency (e.g., USDT)"
+            title=MIN_SELL_AMOUNT_DESC
         )
         
         self.UI.user_input(
             MAX_SELL_AMOUNT_KEY, commons_enums.UserInputTypes.FLOAT, DEFAULT_MAX_SELL_AMOUNT, inputs,
             min_val=0.01, max_val=1000000,
-            title="Maximum Sell Amount",
-            description="Maximum amount to sell in quote currency (e.g., USDT)"
+            title=MAX_SELL_AMOUNT_DESC
         )
         
         # Price Configuration (for limit orders)
         self.UI.user_input(
             PRICE_OFFSET_PERCENT_KEY, commons_enums.UserInputTypes.FLOAT, DEFAULT_PRICE_OFFSET_PERCENT, inputs,
             min_val=0, max_val=10,
-            title="Price Offset Percent",
-            description="For limit orders, percentage offset from current price (0.1 = 0.1%)",
+            title=PRICE_OFFSET_PERCENT_DESC,
             editor_options={
                 commons_enums.UserInputOtherSchemaValuesTypes.DEPENDENCIES.value: {
                     ORDER_TYPE_KEY: "limit"
@@ -153,8 +156,7 @@ class VolumeBoosterTradingMode(trading_modes.AbstractTradingMode):
         # Control Configuration
         self.UI.user_input(
             ENABLE_VOLUME_BOOSTER_KEY, commons_enums.UserInputTypes.BOOLEAN, DEFAULT_ENABLE_VOLUME_BOOSTER, inputs,
-            title="Enable Volume Booster",
-            description="Start/Stop the volume boosting activity"
+            title=ENABLE_VOLUME_BOOSTER_DESC
         )
         
         # Validate configuration after all inputs are defined
@@ -176,35 +178,35 @@ class VolumeBoosterTradingMode(trading_modes.AbstractTradingMode):
             
             # Validation and auto-correction
             if min_buy >= max_buy:
-                self.get_logger().warning(f"Minimum buy amount ({min_buy}) >= maximum ({max_buy}), swapping values")
+                self.logger.warning(f"Minimum buy amount ({min_buy}) >= maximum ({max_buy}), swapping values")
                 inputs[MIN_BUY_AMOUNT_KEY] = max_buy
                 inputs[MAX_BUY_AMOUNT_KEY] = min_buy
                 
             if min_sell >= max_sell:
-                self.get_logger().warning(f"Minimum sell amount ({min_sell}) >= maximum ({max_sell}), swapping values")
+                self.logger.warning(f"Minimum sell amount ({min_sell}) >= maximum ({max_sell}), swapping values")
                 inputs[MIN_SELL_AMOUNT_KEY] = max_sell
                 inputs[MAX_SELL_AMOUNT_KEY] = min_sell
                 
             if min_freq >= max_freq:
-                self.get_logger().warning(f"Minimum frequency ({min_freq}) >= maximum ({max_freq}), swapping values")
+                self.logger.warning(f"Minimum frequency ({min_freq}) >= maximum ({max_freq}), swapping values")
                 inputs[TRADE_FREQUENCY_MIN_KEY] = max_freq
                 inputs[TRADE_FREQUENCY_MAX_KEY] = min_freq
             
             # Critical validations
             if volume_target <= 0:
-                self.get_logger().error("Volume target must be greater than 0")
+                self.logger.error("Volume target must be greater than 0")
                 inputs[VOLUME_TARGET_KEY] = DEFAULT_VOLUME_TARGET
                 
             # Log final configuration
-            self.get_logger().info(f"Volume Booster Configuration validated:")
-            self.get_logger().info(f"  - Target Volume: {inputs.get(VOLUME_TARGET_KEY)}")
-            self.get_logger().info(f"  - Order Type: {inputs.get(ORDER_TYPE_KEY)}")
-            self.get_logger().info(f"  - Trade Frequency: {inputs.get(TRADE_FREQUENCY_MIN_KEY)}-{inputs.get(TRADE_FREQUENCY_MAX_KEY)}s")
-            self.get_logger().info(f"  - Buy Amounts: {inputs.get(MIN_BUY_AMOUNT_KEY)}-{inputs.get(MAX_BUY_AMOUNT_KEY)}")
-            self.get_logger().info(f"  - Sell Amounts: {inputs.get(MIN_SELL_AMOUNT_KEY)}-{inputs.get(MAX_SELL_AMOUNT_KEY)}")
+            self.logger.info(f"Volume Booster Configuration validated:")
+            self.logger.info(f"  - Target Volume: {inputs.get(VOLUME_TARGET_KEY)}")
+            self.logger.info(f"  - Order Type: {inputs.get(ORDER_TYPE_KEY)}")
+            self.logger.info(f"  - Trade Frequency: {inputs.get(TRADE_FREQUENCY_MIN_KEY)}-{inputs.get(TRADE_FREQUENCY_MAX_KEY)}s")
+            self.logger.info(f"  - Buy Amounts: {inputs.get(MIN_BUY_AMOUNT_KEY)}-{inputs.get(MAX_BUY_AMOUNT_KEY)}")
+            self.logger.info(f"  - Sell Amounts: {inputs.get(MIN_SELL_AMOUNT_KEY)}-{inputs.get(MAX_SELL_AMOUNT_KEY)}")
             
         except Exception as e:
-            self.get_logger().error(f"Configuration validation error: {e}")
+            self.logger.error(f"Configuration validation error: {e}")
 
     @classmethod
     def get_mode_producer_classes(cls) -> list:
@@ -244,15 +246,75 @@ class VolumeBoosterTradingMode(trading_modes.AbstractTradingMode):
 
 class VolumeBoosterTradingModeProducer(trading_modes.AbstractTradingModeProducer):
     """
-    Producer for Volume Booster Trading Mode - handles signal generation if needed
+    Producer for Volume Booster Trading Mode - self-initiating like Market Making
     """
     
+    def __init__(self, channel, config, trading_mode, exchange_manager):
+        super().__init__(channel, config, trading_mode, exchange_manager)
+        self.healthy = False
+        self.is_initialized = False
+        self.init_task = None
+    
+    async def start(self) -> None:
+        """Start the producer and initialize volume boosting"""
+        await super().start()
+        self.healthy = True
+        if not self.is_initialized:
+            self.logger.info("Starting Volume Booster initialization...")
+            # Schedule initialization - similar to market making
+            self.init_task = asyncio.create_task(self._initialize_volume_booster())
+    
+    async def _initialize_volume_booster(self):
+        """Initialize volume boosting - similar to market making approach"""
+        try:
+            # Check if we can start (portfolio exists, exchange is ready, etc.)
+            can_start = (
+                not trading_api.get_is_backtesting(self.exchange_manager)
+                or trading_api.is_mark_price_initialized(self.exchange_manager, symbol=self.trading_mode.symbol)
+            ) and (
+                trading_api.get_portfolio(self.exchange_manager) != {}
+                or trading_api.is_trader_simulated(self.exchange_manager)
+            )
+            
+            if can_start:
+                self.logger.info(f"Initializing Volume Booster for {self.trading_mode.symbol}")
+                # Directly start the consumer
+                consumers = self.trading_mode.get_trading_mode_consumers()
+                if consumers:
+                    consumer = consumers[0]  # Get the first (and only) consumer
+                    self.is_initialized = True
+                    # Start the consumer directly - no need for signals
+                    await consumer.inner_start()
+                    self.logger.info("Volume Booster consumer started successfully")
+                else:
+                    self.logger.error("No consumers found for Volume Booster")
+            else:
+                self.logger.info("Cannot start Volume Booster yet, retrying in 5 seconds...")
+                # Retry after delay
+                await asyncio.sleep(5)
+                if not self.should_stop and self.healthy:
+                    self.init_task = asyncio.create_task(self._initialize_volume_booster())
+                    
+        except Exception as e:
+            self.logger.error(f"Failed to initialize volume booster: {e}", exc_info=True)
+            # Retry on error
+            if not self.should_stop and self.healthy:
+                await asyncio.sleep(5)
+                self.init_task = asyncio.create_task(self._initialize_volume_booster())
+    
     async def stop(self) -> None:
-        # Cancel any running tasks
+        """Stop the producer"""
+        self.healthy = False
+        if self.init_task and not self.init_task.done():
+            self.init_task.cancel()
+            try:
+                await self.init_task
+            except asyncio.CancelledError:
+                pass
         await super().stop()
 
     async def set_final_eval(self, matrix_id: str, cryptocurrency: str, symbol: str, time_frame):
-        # Volume booster doesn't use evaluator signals, it's self-contained
+        # Volume booster doesn't use evaluator signals - it's self-initiating
         pass
 
 
@@ -291,37 +353,76 @@ class VolumeBoosterTradingModeConsumer(trading_modes.AbstractTradingModeConsumer
         Start the volume booster with enhanced configuration loading
         """
         try:
+            # Prevent duplicate starts
+            if self.is_running:
+                self.logger.info("Volume Booster is already running")
+                return True
+                
+            self.logger.info("Volume Booster inner_start() called")
+            
             # Load and cache configuration
             self._update_config_cache()
             
-            if self._get_config(ENABLE_VOLUME_BOOSTER_KEY, DEFAULT_ENABLE_VOLUME_BOOSTER):
-                self.target_volume = self._get_config(VOLUME_TARGET_KEY, DEFAULT_VOLUME_TARGET)
-                self.current_volume = 0
-                self.volume_start_time = time.time()
-                self.is_running = True
-                self.should_stop = False
-                
-                # Reset statistics
-                self.orders_placed = 0
-                self.successful_orders = 0
-                self.failed_orders = 0
-                
-                # Start the volume boosting task
-                if self.volume_task is None or self.volume_task.done():
-                    self.volume_task = asyncio.create_task(self._volume_booster_loop())
-                
-                self.logger.info(f"Volume Booster started successfully:")
-                self.logger.info(f"  - Target Volume: {self.target_volume}")
-                self.logger.info(f"  - Order Type: {self._get_config(ORDER_TYPE_KEY)}")
-                self.logger.info(f"  - Symbols: {len(self.exchange_manager.exchange_config.traded_symbol_pairs)}")
-                
-                return True
-            else:
-                self.logger.info("Volume Booster is disabled in configuration")
+            enabled = self._get_config(ENABLE_VOLUME_BOOSTER_KEY, DEFAULT_ENABLE_VOLUME_BOOSTER)
+            self.logger.info(f"Volume Booster enabled: {enabled}")
+            
+            if not enabled:
+                self.logger.warning("Volume Booster is disabled in configuration")
+                return False
+            
+            # Check if exchange manager is properly initialized
+            if not self.exchange_manager:
+                self.logger.error("Exchange manager not available")
                 return False
                 
+            if not hasattr(self.exchange_manager, 'exchange_config') or not self.exchange_manager.exchange_config:
+                self.logger.error("Exchange configuration not available")
+                return False
+                
+            symbols = list(self.exchange_manager.exchange_config.traded_symbol_pairs)
+            if not symbols:
+                self.logger.error("No symbols configured for trading")
+                return False
+            
+            # Initialize volume booster
+            self.target_volume = self._get_config(VOLUME_TARGET_KEY, DEFAULT_VOLUME_TARGET)
+            self.current_volume = 0
+            self.volume_start_time = time.time()
+            self.is_running = True
+            self.should_stop = False
+            
+            # Reset statistics
+            self.orders_placed = 0
+            self.successful_orders = 0
+            self.failed_orders = 0
+            
+            self.logger.info(f"Volume Booster configuration loaded:")
+            self.logger.info(f"  - Target Volume: {self.target_volume}")
+            self.logger.info(f"  - Order Type: {self._get_config(ORDER_TYPE_KEY, DEFAULT_ORDER_TYPE)}")
+            self.logger.info(f"  - Min/Max Buy: {self._get_config(MIN_BUY_AMOUNT_KEY, DEFAULT_MIN_BUY_AMOUNT)}-{self._get_config(MAX_BUY_AMOUNT_KEY, DEFAULT_MAX_BUY_AMOUNT)}")
+            self.logger.info(f"  - Min/Max Sell: {self._get_config(MIN_SELL_AMOUNT_KEY, DEFAULT_MIN_SELL_AMOUNT)}-{self._get_config(MAX_SELL_AMOUNT_KEY, DEFAULT_MAX_SELL_AMOUNT)}")
+            self.logger.info(f"  - Trade Frequency: {self._get_config(TRADE_FREQUENCY_MIN_KEY, DEFAULT_TRADE_FREQUENCY_MIN)}-{self._get_config(TRADE_FREQUENCY_MAX_KEY, DEFAULT_TRADE_FREQUENCY_MAX)}s")
+            self.logger.info(f"  - Symbols: {symbols}")
+            
+            # Check if trader is enabled (either real or simulated)
+            if not self.exchange_manager.trader or not (self.exchange_manager.trader.is_enabled or trading_api.is_trader_simulated(self.exchange_manager)):
+                self.logger.error("Trading is not enabled (neither real nor simulated trading)")
+                self.is_running = False
+                return False
+            
+            # Start the volume boosting task
+            if self.volume_task is None or self.volume_task.done():
+                self.logger.info("Starting volume booster main loop...")
+                self.volume_task = asyncio.create_task(self._volume_booster_loop())
+            else:
+                self.logger.info("Volume booster task already running")
+            
+            self.logger.info("Volume Booster started successfully!")
+            return True
+                
         except Exception as e:
-            self.logger.error(f"Failed to start Volume Booster: {e}")
+            self.logger.error(f"Failed to start Volume Booster: {e}", exc_info=True)
+            self.is_running = False
             return False
             
     def _update_config_cache(self):
@@ -459,25 +560,30 @@ class VolumeBoosterTradingModeConsumer(trading_modes.AbstractTradingModeConsumer
         Execute a single volume boost trade
         """
         try:
+            self.logger.debug(f"Attempting to execute volume boost trade for {symbol}")
+            
             # Check if target volume is reached
             if self.current_volume >= self.target_volume:
                 self.logger.info(f"Target volume {self.target_volume} reached! Current: {self.current_volume}")
                 self.is_running = False
                 return
             
-            # Get current price
-            ticker = await trading_api.get_symbol_ticker(self.exchange_manager, symbol)
-            if not ticker:
-                self.logger.warning(f"No ticker data for {symbol}")
+            # Get current price and symbol market info
+            _, _, _, current_price, symbol_market = await trading_personal_data.get_pre_order_data(
+                self.exchange_manager,
+                symbol=symbol,
+                timeout=30  # 30 second timeout for price fetching
+            )
+            
+            if current_price is None:
+                self.logger.warning(f"No price data available for {symbol}")
                 return
             
-            current_price = decimal.Decimal(str(ticker[trading_enums.ExchangeConstantsTickersColumns.LAST.value]))
-            
-            # Get symbol info for minimum order size validation
-            symbol_market = self.exchange_manager.exchange.get_market_status(symbol)
+            # Get minimum order limits from symbol market data
             if symbol_market:
-                min_quantity = symbol_market.get("limits", {}).get("amount", {}).get("min", 0)
-                min_cost = symbol_market.get("limits", {}).get("cost", {}).get("min", 0)
+                limits = symbol_market.get(trading_enums.ExchangeConstantsMarketStatusColumns.LIMITS.value, {})
+                min_quantity = limits.get("amount", {}).get("min", 0)
+                min_cost = limits.get("cost", {}).get("min", 0)
             else:
                 min_quantity = 0
                 min_cost = 0
@@ -487,11 +593,11 @@ class VolumeBoosterTradingModeConsumer(trading_modes.AbstractTradingModeConsumer
             
             # Get amount range
             if is_buy:
-                min_amount = max(self.trading_mode.trading_config.get("min_buy_amount", 10), min_cost)
-                max_amount = self.trading_mode.trading_config.get("max_buy_amount", 100)
+                min_amount = max(self._get_config(MIN_BUY_AMOUNT_KEY, DEFAULT_MIN_BUY_AMOUNT), min_cost)
+                max_amount = self._get_config(MAX_BUY_AMOUNT_KEY, DEFAULT_MAX_BUY_AMOUNT)
             else:
-                min_amount = max(self.trading_mode.trading_config.get("min_sell_amount", 10), min_cost)
-                max_amount = self.trading_mode.trading_config.get("max_sell_amount", 100)
+                min_amount = max(self._get_config(MIN_SELL_AMOUNT_KEY, DEFAULT_MIN_SELL_AMOUNT), min_cost)
+                max_amount = self._get_config(MAX_SELL_AMOUNT_KEY, DEFAULT_MAX_SELL_AMOUNT)
             
             # Ensure min is not greater than max
             if min_amount > max_amount:
@@ -507,26 +613,26 @@ class VolumeBoosterTradingModeConsumer(trading_modes.AbstractTradingModeConsumer
                 quote_amount = float(quantity * current_price)
             
             # Check if we have enough balance
-            portfolio = self.exchange_manager.exchange_personal_data.portfolio_manager.portfolio
+            portfolio_manager = self.exchange_manager.exchange_personal_data.portfolio_manager
             base_currency, quote_currency = symbol.split("/")
             
             if is_buy:
                 # Check quote currency balance for buying
-                available_quote = portfolio.get_currency_portfolio(quote_currency).available
+                available_quote = trading_api.get_portfolio_currency(self.exchange_manager, quote_currency).available
                 required_amount = decimal.Decimal(str(quote_amount * 1.01))  # Add 1% buffer for fees
                 if available_quote < required_amount:
                     self.logger.debug(f"Insufficient {quote_currency} balance: {available_quote} < {required_amount}")
                     return
             else:
                 # Check base currency balance for selling
-                available_base = portfolio.get_currency_portfolio(base_currency).available
+                available_base = trading_api.get_portfolio_currency(self.exchange_manager, base_currency).available
                 required_quantity = quantity * decimal.Decimal("1.01")  # Add 1% buffer
                 if available_base < required_quantity:
                     self.logger.debug(f"Insufficient {base_currency} balance: {available_base} < {required_quantity}")
                     return
             
             # Create order
-            order_type = self.trading_mode.trading_config.get("order_type", "limit")
+            order_type = self._get_config(ORDER_TYPE_KEY, DEFAULT_ORDER_TYPE)
             
             if order_type == "market":
                 # Market order
@@ -539,9 +645,11 @@ class VolumeBoosterTradingModeConsumer(trading_modes.AbstractTradingModeConsumer
                     price=current_price
                 )
                 order_price = current_price
+                # Disable instant fill for market orders too
+                order.allow_instant_fill = False
             else:
                 # Limit order with price offset
-                price_offset = self.trading_mode.trading_config.get("price_offset_percent", 0.1) / 100
+                price_offset = self._get_config(PRICE_OFFSET_PERCENT_KEY, DEFAULT_PRICE_OFFSET_PERCENT) / 100
                 
                 if is_buy:
                     # Buy slightly below current price
@@ -559,27 +667,40 @@ class VolumeBoosterTradingModeConsumer(trading_modes.AbstractTradingModeConsumer
                     price=order_price
                 )
             
+            # Disable instant fill to avoid issues in simulator (like market making does)
+            order.allow_instant_fill = False
+            
             # Execute the order
-            await self.exchange_manager.trader.create_order(order)
+            self.logger.debug(f"Creating order: {order}")
+            created_order = await self.trading_mode.create_order(order)
+            self.orders_placed += 1
             
-            # Update volume tracking (use order value for consistent tracking)
-            order_value = float(quantity * order_price)
-            self.current_volume += order_value
-            
-            action = "BUY" if is_buy else "SELL"
-            progress_percent = (self.current_volume / self.target_volume) * 100
-            self.logger.info(
-                f"Volume Boost {action}: {quantity:.6f} {base_currency} "
-                f"at {order_price:.6f} {quote_currency} "
-                f"(Progress: {self.current_volume:.2f}/{self.target_volume:.2f} = {progress_percent:.1f}%)"
-            )
+            if created_order:
+                self.successful_orders += 1
+                # Update volume tracking (use order value for consistent tracking)
+                order_value = float(quantity * order_price)
+                self.current_volume += order_value
+                
+                action = "BUY" if is_buy else "SELL"
+                progress_percent = (self.current_volume / self.target_volume) * 100
+                self.logger.info(
+                    f"✅ Volume Boost {action}: {quantity:.6f} {base_currency} "
+                    f"at {order_price:.6f} {quote_currency} "
+                    f"(Progress: {self.current_volume:.2f}/{self.target_volume:.2f} = {progress_percent:.1f}%)"
+                )
+            else:
+                self.failed_orders += 1
+                self.logger.warning(f"Order creation returned None for {symbol}")
             
         except trading_errors.MissingMinimalExchangeTradeVolume as e:
+            self.failed_orders += 1
             self.logger.debug(f"Trade amount too small for {symbol}: {e}")
         except trading_errors.NotSupported as e:
+            self.failed_orders += 1
             self.logger.warning(f"Order type not supported for {symbol}: {e}")
         except Exception as e:
-            self.logger.error(f"Error executing volume boost trade for {symbol}: {e}")
+            self.failed_orders += 1
+            self.logger.error(f"Error executing volume boost trade for {symbol}: {e}", exc_info=True)
             # Add a longer pause on errors to prevent spam
             await asyncio.sleep(5)
 
@@ -614,7 +735,6 @@ class VolumeBoosterTradingModeConsumer(trading_modes.AbstractTradingModeConsumer
     async def internal_callback(self, trading_mode_name: str, cryptocurrency: str, symbol: str, signal: str,
                               **kwargs):
         """
-        Handle trading signals (not used in volume booster mode)
-        This mode operates independently of evaluator signals
+        Handle trading signals (not used - volume booster is self-initiating)
         """
         pass
