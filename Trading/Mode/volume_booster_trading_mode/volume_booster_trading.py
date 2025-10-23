@@ -386,6 +386,9 @@ class VolumeBoosterTradingModeConsumer(trading_modes.AbstractTradingModeConsumer
             
             # Initialize volume booster
             self.target_volume = self._get_config(VOLUME_TARGET_KEY, DEFAULT_VOLUME_TARGET)
+            # Ensure target_volume is never None
+            if self.target_volume is None:
+                self.target_volume = DEFAULT_VOLUME_TARGET
             self.current_volume = 0
             self.volume_start_time = time.time()
             self.is_running = True
@@ -432,7 +435,11 @@ class VolumeBoosterTradingModeConsumer(trading_modes.AbstractTradingModeConsumer
         
     def _get_config(self, key: str, default_value=None):
         """Get configuration value with caching"""
-        return self._config_cache.get(key, default_value)
+        value = self._config_cache.get(key, default_value)
+        # Ensure we never return None for numeric config values
+        if value is None and default_value is not None:
+            value = default_value
+        return value
 
     async def stop(self):
         """
@@ -515,7 +522,9 @@ class VolumeBoosterTradingModeConsumer(trading_modes.AbstractTradingModeConsumer
                 
                 # Process each symbol
                 for symbol in symbols:
-                    if not self.is_running or self.should_stop or self.current_volume >= self.target_volume:
+                    if (not self.is_running or self.should_stop or 
+                        (self.current_volume is not None and self.target_volume is not None and 
+                         self.current_volume >= self.target_volume)):
                         break
                         
                     try:
@@ -541,7 +550,8 @@ class VolumeBoosterTradingModeConsumer(trading_modes.AbstractTradingModeConsumer
                         await asyncio.sleep(2)  # Brief pause on error
             
             # Check completion status
-            if self.current_volume >= self.target_volume:
+            if (self.current_volume is not None and self.target_volume is not None and 
+                self.current_volume >= self.target_volume):
                 self.logger.info(f"🎯 Volume target reached! {self.current_volume:.2f}/{self.target_volume:.2f}")
             elif self.should_stop:
                 self.logger.info("Volume Booster stopped by user request")
@@ -562,8 +572,17 @@ class VolumeBoosterTradingModeConsumer(trading_modes.AbstractTradingModeConsumer
         try:
             self.logger.debug(f"Attempting to execute volume boost trade for {symbol}")
             
+            # Defensive checks for None values to prevent comparison errors
+            if self.current_volume is None:
+                self.logger.warning("current_volume is None, resetting to 0")
+                self.current_volume = 0
+            if self.target_volume is None:
+                self.logger.warning("target_volume is None, setting to default")
+                self.target_volume = DEFAULT_VOLUME_TARGET
+            
             # Check if target volume is reached
-            if self.current_volume >= self.target_volume:
+            if (self.current_volume is not None and self.target_volume is not None and 
+                self.current_volume >= self.target_volume):
                 self.logger.info(f"Target volume {self.target_volume} reached! Current: {self.current_volume}")
                 self.is_running = False
                 return
@@ -620,15 +639,21 @@ class VolumeBoosterTradingModeConsumer(trading_modes.AbstractTradingModeConsumer
                 # Check quote currency balance for buying
                 available_quote = trading_api.get_portfolio_currency(self.exchange_manager, quote_currency).available
                 required_amount = decimal.Decimal(str(quote_amount * 1.01))  # Add 1% buffer for fees
-                if available_quote < required_amount:
+                if available_quote is not None and available_quote < required_amount:
                     self.logger.debug(f"Insufficient {quote_currency} balance: {available_quote} < {required_amount}")
+                    return
+                elif available_quote is None:
+                    self.logger.warning(f"Could not get {quote_currency} balance")
                     return
             else:
                 # Check base currency balance for selling
                 available_base = trading_api.get_portfolio_currency(self.exchange_manager, base_currency).available
                 required_quantity = quantity * decimal.Decimal("1.01")  # Add 1% buffer
-                if available_base < required_quantity:
+                if available_base is not None and available_base < required_quantity:
                     self.logger.debug(f"Insufficient {base_currency} balance: {available_base} < {required_quantity}")
+                    return
+                elif available_base is None:
+                    self.logger.warning(f"Could not get {base_currency} balance")
                     return
             
             # Create order
@@ -682,7 +707,8 @@ class VolumeBoosterTradingModeConsumer(trading_modes.AbstractTradingModeConsumer
                 self.current_volume += order_value
                 
                 action = "BUY" if is_buy else "SELL"
-                progress_percent = (self.current_volume / self.target_volume) * 100
+                progress_percent = ((self.current_volume / self.target_volume) * 100 
+                                  if self.target_volume and self.target_volume > 0 else 0)
                 self.logger.info(
                     f"✅ Volume Boost {action}: {quantity:.6f} {base_currency} "
                     f"at {order_price:.6f} {quote_currency} "
