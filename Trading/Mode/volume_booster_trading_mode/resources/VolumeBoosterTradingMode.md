@@ -10,10 +10,9 @@ The Volume Booster Trading Mode is designed to rapidly execute buy and sell orde
 
 ## Features
 - **Configurable Volume Target**: Set your desired volume target in base currency units
-- **Order Type Selection**: Choose between market orders (immediate execution) or limit orders
+- **Market Orders Only**: All orders execute immediately at current market price
 - **Flexible Trade Frequency**: Set minimum and maximum intervals between trades
 - **Amount Randomization**: Configure min/max buy and sell amounts for natural trading patterns
-- **Price Offset Control**: For limit orders, set percentage offset from current market price
 - **Real-time Monitoring**: Track progress toward volume target
 - **Balance Protection**: Automatic balance checking to prevent overtrading
 
@@ -24,9 +23,9 @@ The Volume Booster Trading Mode is designed to rapidly execute buy and sell orde
 - **Description**: Target volume to achieve (in base currency units like USDT)
 
 ### Order Type
-- **Options**: "market", "limit"
-- **Default**: "limit"
-- **Description**: Market orders execute immediately, limit orders wait at specified prices
+- **Options**: "market" only
+- **Default**: "market"
+- **Description**: Market orders execute immediately at current market price
 
 ### Trade Frequency
 - **Min Frequency**: Minimum seconds between trades (default: 1.0)
@@ -38,9 +37,7 @@ The Volume Booster Trading Mode is designed to rapidly execute buy and sell orde
 - **Min/Max Sell Amount**: Range for sell order sizes in quote currency
 - **Defaults**: 10-100 for both buy and sell
 
-### Price Offset (Limit Orders Only)
-- **Default**: 0.1%
-- **Description**: Percentage offset from current price (buy below, sell above market)
+
 
 ## Safety Features
 - **Balance Checking**: Verifies sufficient funds before placing orders

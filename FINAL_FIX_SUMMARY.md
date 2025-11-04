@@ -79,14 +79,13 @@ self.logger.error(f"Configuration error: {message}")
 ### Configuration Constants Verified ✅
 ```
 ✅ VOLUME_TARGET: 10000
-✅ ORDER_TYPE: limit
+✅ ORDER_TYPE: market
 ✅ TRADE_FREQUENCY_MIN: 1.0
 ✅ TRADE_FREQUENCY_MAX: 5.0
 ✅ MIN_BUY_AMOUNT: 10
 ✅ MAX_BUY_AMOUNT: 100
 ✅ MIN_SELL_AMOUNT: 10
 ✅ MAX_SELL_AMOUNT: 100
-✅ PRICE_OFFSET_PERCENT: 0.1
 ✅ ENABLE_VOLUME_BOOSTER: True
 ```
 

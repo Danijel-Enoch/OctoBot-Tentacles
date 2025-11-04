@@ -28,8 +28,7 @@ I have successfully created a comprehensive "Volume Booster" trading mode for yo
 - ✅ **Intelligent Order Direction**: Analyzes portfolio balance to prefer buy/sell based on available funds
 - ✅ **Dynamic Amount Calculation**: Random amounts within configured ranges with exchange minimum validation
 - ✅ **Fee Buffer Protection**: 1% buffer to prevent insufficient balance errors
-- ✅ **Market vs Limit Orders**: User-configurable execution strategy
-- ✅ **Price Offset Control**: Configurable percentage offset for limit orders
+- ✅ **Market Orders Only**: Immediate execution at current market price
 
 ### **Risk Management**
 - ✅ **Balance Verification**: Pre-trade balance checking with fee buffers
@@ -50,14 +49,14 @@ I have successfully created a comprehensive "Volume Booster" trading mode for yo
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `volume_target` | 50,000 | Target volume in quote currency (USDT) |
-| `order_type` | "limit" | "market" for instant execution, "limit" for price control |
+| `order_type` | "market" | Market orders for immediate execution at current price |
 | `trade_frequency_min` | 2.0 | Minimum seconds between trades |
 | `trade_frequency_max` | 8.0 | Maximum seconds between trades |
 | `min_buy_amount` | 25 | Minimum buy order size (USDT) |
 | `max_buy_amount` | 150 | Maximum buy order size (USDT) |
 | `min_sell_amount` | 25 | Minimum sell order size (USDT) |
 | `max_sell_amount` | 150 | Maximum sell order size (USDT) |
-| `price_offset_percent` | 0.2 | Price offset for limit orders (%) |
+
 | `enable_volume_booster` | true | Master on/off switch |
 
 ## 🔧 **Pre-configured Scenarios**

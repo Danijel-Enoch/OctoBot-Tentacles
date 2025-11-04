@@ -61,14 +61,13 @@ SYMBOL_MARKET = {
 def _get_volume_booster_config():
     return {
         "volume_target": 1000.0,
-        "order_type": "limit",
+        "order_type": "market",
         "trade_frequency_min": 0.1,
         "trade_frequency_max": 0.5,
         "min_buy_amount": 10.0,
         "max_buy_amount": 50.0,
         "min_sell_amount": 10.0,
         "max_sell_amount": 50.0,
-        "price_offset_percent": 0.1,
         "enable_volume_booster": True
     }
 
@@ -164,7 +163,7 @@ async def test_volume_booster_config_validation():
         
         # Check default values
         assert consumer._get_config("volume_target") == 1000.0
-        assert consumer._get_config("order_type") == "limit"
+        assert consumer._get_config("order_type") == "market"
         assert consumer._get_config("enable_volume_booster") is True
         assert consumer._get_config("trade_frequency_min") == 0.1
         assert consumer._get_config("trade_frequency_max") == 0.5
@@ -227,28 +226,7 @@ async def test_volume_booster_insufficient_balance():
         assert consumer.successful_orders == 0
 
 
-async def test_volume_booster_order_creation_limit_orders():
-    """Test Volume Booster limit order creation"""
-    symbol = "BTC/USDT"
-    async with _get_tools(symbol) as (producer, consumer, exchange_manager):
-        await consumer.inner_start()
-        
-        # Mock random functions to control order parameters
-        with mock.patch('random.choice', return_value=True) as mock_choice, \
-             mock.patch('random.uniform', return_value=25.0) as mock_uniform:
-            
-            # Execute a trade
-            await consumer._execute_volume_boost_trade(symbol)
-            
-            # Wait for order processing
-            await asyncio_tools.wait_asyncio_next_cycle()
-        
-        # Check that an order was attempted
-        assert consumer.orders_placed >= 1
-        
-        # Check order statistics
-        total_orders = consumer.successful_orders + consumer.failed_orders
-        assert total_orders == consumer.orders_placed
+
 
 
 async def test_volume_booster_order_creation_market_orders():
@@ -420,36 +398,7 @@ async def test_volume_booster_update_target():
         assert consumer.target_volume == 2000.0
 
 
-async def test_volume_booster_price_offset():
-    """Test Volume Booster price offset for limit orders"""
-    symbol = "BTC/USDT"
-    async with _get_tools(symbol) as (producer, consumer, exchange_manager):
-        # Set specific price offset
-        consumer.trading_mode.trading_config["price_offset_percent"] = 0.5
-        await consumer.inner_start()
-        
-        # Test with mocked order creation to capture price
-        original_create_order = consumer.trading_mode.create_order
-        created_orders = []
-        
-        async def mock_create_order(order):
-            created_orders.append(order)
-            return await original_create_order(order)
-        
-        with mock.patch.object(consumer.trading_mode, 'create_order', side_effect=mock_create_order), \
-             mock.patch('random.choice', return_value=True), \
-             mock.patch('random.uniform', return_value=25.0):
-            
-            await consumer._execute_volume_boost_trade(symbol)
-            await asyncio_tools.wait_asyncio_next_cycle()
-        
-        # Check that orders were created with price offset
-        if created_orders:
-            order = created_orders[0]
-            # For buy orders, price should be lower than current price (1000)
-            # With 0.5% offset: 1000 * (1 - 0.005) = 995
-            expected_price = decimal.Decimal("995.0")
-            assert abs(order.origin_price - expected_price) < decimal.Decimal("1.0")
+
 
 
 async def test_volume_booster_multiple_symbols():

@@ -63,8 +63,8 @@ def validate_volume_booster_config(config: dict) -> tuple[bool, list[str]]:
     if config["volume_target"] <= 0:
         errors.append("volume_target must be greater than 0")
         
-    if config["order_type"] not in ["market", "limit"]:
-        errors.append("order_type must be 'market' or 'limit'")
+    if config["order_type"] != "market":
+        errors.append("order_type must be 'market'")
         
     # Validate frequency ranges
     if config["trade_frequency_min"] < 0.1:
@@ -99,14 +99,13 @@ def get_recommended_config(exchange_name: str = "binance") -> dict:
     # Base configuration
     base_config = {
         "volume_target": 10000,
-        "order_type": "limit",
+        "order_type": "market",
         "trade_frequency_min": 2.0,
         "trade_frequency_max": 8.0,
         "min_buy_amount": 25,
         "max_buy_amount": 100,
         "min_sell_amount": 25,
         "max_sell_amount": 100,
-        "price_offset_percent": 0.2,
         "enable_volume_booster": True
     }
     

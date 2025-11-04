@@ -2,28 +2,26 @@
 	"Conservative": {
 		"VolumeBoosterTradingMode": {
 			"volume_target": 10000,
-			"order_type": "limit",
+			"order_type": "market",
 			"trade_frequency_min": 5.0,
 			"trade_frequency_max": 15.0,
 			"min_buy_amount": 10,
 			"max_buy_amount": 50,
 			"min_sell_amount": 10,
 			"max_sell_amount": 50,
-			"price_offset_percent": 0.5,
 			"enable_volume_booster": true
 		}
 	},
 	"Moderate": {
 		"VolumeBoosterTradingMode": {
 			"volume_target": 25000,
-			"order_type": "limit",
+			"order_type": "market",
 			"trade_frequency_min": 3.0,
 			"trade_frequency_max": 10.0,
 			"min_buy_amount": 20,
 			"max_buy_amount": 100,
 			"min_sell_amount": 20,
 			"max_sell_amount": 100,
-			"price_offset_percent": 0.3,
 			"enable_volume_booster": true
 		}
 	},
@@ -37,21 +35,19 @@
 			"max_buy_amount": 300,
 			"min_sell_amount": 50,
 			"max_sell_amount": 300,
-			"price_offset_percent": 0.1,
 			"enable_volume_booster": true
 		}
 	},
 	"HighVolume": {
 		"VolumeBoosterTradingMode": {
 			"volume_target": 500000,
-			"order_type": "limit",
+			"order_type": "market",
 			"trade_frequency_min": 0.5,
 			"trade_frequency_max": 2.0,
 			"min_buy_amount": 100,
 			"max_buy_amount": 1000,
 			"min_sell_amount": 100,
 			"max_sell_amount": 1000,
-			"price_offset_percent": 0.05,
 			"enable_volume_booster": true
 		}
 	}

@@ -47,31 +47,28 @@ MIN_BUY_AMOUNT_KEY = "min_buy_amount"
 MAX_BUY_AMOUNT_KEY = "max_buy_amount"
 MIN_SELL_AMOUNT_KEY = "min_sell_amount"
 MAX_SELL_AMOUNT_KEY = "max_sell_amount"
-PRICE_OFFSET_PERCENT_KEY = "price_offset_percent"
 ENABLE_VOLUME_BOOSTER_KEY = "enable_volume_booster"
 
 # Default values
 DEFAULT_VOLUME_TARGET = 10000
-DEFAULT_ORDER_TYPE = "limit"
+DEFAULT_ORDER_TYPE = "market"
 DEFAULT_TRADE_FREQUENCY_MIN = 1.0
 DEFAULT_TRADE_FREQUENCY_MAX = 5.0
 DEFAULT_MIN_BUY_AMOUNT = 10
 DEFAULT_MAX_BUY_AMOUNT = 100
 DEFAULT_MIN_SELL_AMOUNT = 10
 DEFAULT_MAX_SELL_AMOUNT = 100
-DEFAULT_PRICE_OFFSET_PERCENT = 0.1
 DEFAULT_ENABLE_VOLUME_BOOSTER = True
 
 # User input descriptions
 VOLUME_TARGET_DESC = "Target volume to achieve (in base currency units like USDT)"
-ORDER_TYPE_DESC = "Market orders execute immediately, limit orders wait at specified prices"
+ORDER_TYPE_DESC = "Market orders execute immediately at current market price"
 TRADE_FREQUENCY_MIN_DESC = "Minimum seconds between trades (lower = more frequent)"
 TRADE_FREQUENCY_MAX_DESC = "Maximum seconds between trades (creates randomized intervals)"
 MIN_BUY_AMOUNT_DESC = "Minimum amount to buy in quote currency (e.g., USDT)"
 MAX_BUY_AMOUNT_DESC = "Maximum amount to buy in quote currency (e.g., USDT)"
 MIN_SELL_AMOUNT_DESC = "Minimum amount to sell in quote currency (e.g., USDT)"
 MAX_SELL_AMOUNT_DESC = "Maximum amount to sell in quote currency (e.g., USDT)"
-PRICE_OFFSET_PERCENT_DESC = "For limit orders, percentage offset from current price (0.1 = 0.1%)"
 ENABLE_VOLUME_BOOSTER_DESC = "Start/Stop the volume boosting activity"
 
 # Trading mode metadata
@@ -95,10 +92,10 @@ class VolumeBoosterTradingMode(trading_modes.AbstractTradingMode):
             title=VOLUME_TARGET_DESC
         )
         
-        # Order Configuration
+        # Order Configuration - Market orders only
         self.UI.user_input(
             ORDER_TYPE_KEY, commons_enums.UserInputTypes.OPTIONS, DEFAULT_ORDER_TYPE, inputs,
-            options=["market", "limit"],
+            options=["market"],
             title=ORDER_TYPE_DESC
         )
         
@@ -141,17 +138,7 @@ class VolumeBoosterTradingMode(trading_modes.AbstractTradingMode):
             title=MAX_SELL_AMOUNT_DESC
         )
         
-        # Price Configuration (for limit orders)
-        self.UI.user_input(
-            PRICE_OFFSET_PERCENT_KEY, commons_enums.UserInputTypes.FLOAT, DEFAULT_PRICE_OFFSET_PERCENT, inputs,
-            min_val=0, max_val=10,
-            title=PRICE_OFFSET_PERCENT_DESC,
-            editor_options={
-                commons_enums.UserInputOtherSchemaValuesTypes.DEPENDENCIES.value: {
-                    ORDER_TYPE_KEY: "limit"
-                }
-            }
-        )
+
         
         # Control Configuration
         self.UI.user_input(
@@ -347,6 +334,8 @@ class VolumeBoosterTradingModeConsumer(trading_modes.AbstractTradingModeConsumer
         self.orders_placed = 0
         self.successful_orders = 0
         self.failed_orders = 0
+        self.consecutive_failures = 0
+        self.last_failure_time = 0
 
     async def inner_start(self) -> bool:
         """
@@ -398,6 +387,8 @@ class VolumeBoosterTradingModeConsumer(trading_modes.AbstractTradingModeConsumer
             self.orders_placed = 0
             self.successful_orders = 0
             self.failed_orders = 0
+            self.consecutive_failures = 0
+            self.last_failure_time = 0
             
             self.logger.info(f"Volume Booster configuration loaded:")
             self.logger.info(f"  - Target Volume: {self.target_volume}")
@@ -528,17 +519,28 @@ class VolumeBoosterTradingModeConsumer(trading_modes.AbstractTradingModeConsumer
                         break
                         
                     try:
+                        # Check if we should slow down due to consecutive failures
+                        if self.consecutive_failures >= 3:
+                            backoff_time = min(30, self.consecutive_failures * 2)
+                            self.logger.warning(f"Too many consecutive failures ({self.consecutive_failures}), backing off for {backoff_time}s")
+                            await asyncio.sleep(backoff_time)
+                            
                         await self._execute_volume_boost_trade(symbol)
                         
-                        # Dynamic wait time based on configuration
+                        # Dynamic wait time based on configuration and recent failures
                         min_freq = self._get_config(TRADE_FREQUENCY_MIN_KEY, DEFAULT_TRADE_FREQUENCY_MIN)
                         max_freq = self._get_config(TRADE_FREQUENCY_MAX_KEY, DEFAULT_TRADE_FREQUENCY_MAX)
                         
                         # Ensure min_freq <= max_freq
                         if min_freq > max_freq:
                             min_freq, max_freq = max_freq, min_freq
+                        
+                        # Increase wait time if we've had recent failures
+                        failure_multiplier = 1.0
+                        if self.consecutive_failures > 0:
+                            failure_multiplier = 1 + (self.consecutive_failures * 0.5)
                             
-                        wait_time = random.uniform(min_freq, max_freq)
+                        wait_time = random.uniform(min_freq, max_freq) * failure_multiplier
                         await asyncio.sleep(wait_time)
                         
                     except asyncio.CancelledError:
@@ -601,11 +603,17 @@ class VolumeBoosterTradingModeConsumer(trading_modes.AbstractTradingModeConsumer
             # Get minimum order limits from symbol market data
             if symbol_market:
                 limits = symbol_market.get(trading_enums.ExchangeConstantsMarketStatusColumns.LIMITS.value, {})
-                min_quantity = limits.get("amount", {}).get("min", 0)
-                min_cost = limits.get("cost", {}).get("min", 0)
+                amount_limits = limits.get("amount") if limits else None
+                cost_limits = limits.get("cost") if limits else None
+                min_quantity = amount_limits.get("min", 0) if amount_limits else 0
+                min_cost = cost_limits.get("min", 0) if cost_limits else 0
             else:
                 min_quantity = 0
                 min_cost = 0
+            
+            # Ensure values are not None (fallback to 0)
+            min_quantity = min_quantity if min_quantity is not None else 0
+            min_cost = min_cost if min_cost is not None else 0
             
             # Decide whether to buy or sell (random choice)
             is_buy = random.choice([True, False])
@@ -622,7 +630,7 @@ class VolumeBoosterTradingModeConsumer(trading_modes.AbstractTradingModeConsumer
             if min_amount > max_amount:
                 min_amount = max_amount
             
-            # Random amount within range
+            # Random amount within range with better precision handling
             quote_amount = random.uniform(min_amount, max_amount)
             quantity = decimal.Decimal(str(quote_amount)) / current_price
             
@@ -631,102 +639,181 @@ class VolumeBoosterTradingModeConsumer(trading_modes.AbstractTradingModeConsumer
                 quantity = decimal.Decimal(str(min_quantity))
                 quote_amount = float(quantity * current_price)
             
-            # Check if we have enough balance
-            portfolio_manager = self.exchange_manager.exchange_personal_data.portfolio_manager
+            # Round quantity to exchange precision to avoid rejection
+            if symbol_market:
+                precision = symbol_market.get(trading_enums.ExchangeConstantsMarketStatusColumns.PRECISION.value, {})
+                amount_precision = precision.get("amount", 8) if precision else 8
+                # Round to the appropriate decimal places
+                quantity = quantity.quantize(decimal.Decimal('0.1') ** amount_precision)
+                quote_amount = float(quantity * current_price)
+            
+            # Final safety check - ensure minimum order value
+            min_order_value = max(min_cost, 1.0)  # At least $1 or exchange minimum
+            if quote_amount < min_order_value:
+                self.logger.debug(f"Order value {quote_amount} too small (min: {min_order_value}), skipping {symbol}")
+                return
+            
+            # Enhanced balance checking with more conservative buffers
             base_currency, quote_currency = symbol.split("/")
             
             if is_buy:
-                # Check quote currency balance for buying
+                # Check quote currency balance for buying with larger buffer
                 available_quote = trading_api.get_portfolio_currency(self.exchange_manager, quote_currency).available
-                required_amount = decimal.Decimal(str(quote_amount * 1.01))  # Add 1% buffer for fees
-                if available_quote is not None and available_quote < required_amount:
-                    self.logger.debug(f"Insufficient {quote_currency} balance: {available_quote} < {required_amount}")
-                    return
-                elif available_quote is None:
+                required_amount = decimal.Decimal(str(quote_amount * 1.05))  # Add 5% buffer for fees and slippage
+                if available_quote is None:
                     self.logger.warning(f"Could not get {quote_currency} balance")
                     return
-            else:
-                # Check base currency balance for selling
-                available_base = trading_api.get_portfolio_currency(self.exchange_manager, base_currency).available
-                required_quantity = quantity * decimal.Decimal("1.01")  # Add 1% buffer
-                if available_base is not None and available_base < required_quantity:
-                    self.logger.debug(f"Insufficient {base_currency} balance: {available_base} < {required_quantity}")
+                if available_quote < required_amount:
+                    self.logger.debug(f"Insufficient {quote_currency} balance: {available_quote} < {required_amount}")
                     return
-                elif available_base is None:
+                    
+                # Additional check: ensure we're not using more than 80% of available balance
+                max_usable = available_quote * decimal.Decimal("0.8")
+                if required_amount > max_usable:
+                    # Reduce the order size to fit within safe limits
+                    safe_amount = float(max_usable * decimal.Decimal("0.95"))
+                    quantity = decimal.Decimal(str(safe_amount)) / current_price
+                    quote_amount = safe_amount
+                    self.logger.debug(f"Reduced order size to {safe_amount} {quote_currency} for safety")
+            else:
+                # Check base currency balance for selling with larger buffer
+                available_base = trading_api.get_portfolio_currency(self.exchange_manager, base_currency).available
+                required_quantity = quantity * decimal.Decimal("1.05")  # Add 5% buffer
+                if available_base is None:
                     self.logger.warning(f"Could not get {base_currency} balance")
                     return
+                if available_base < required_quantity:
+                    self.logger.debug(f"Insufficient {base_currency} balance: {available_base} < {required_quantity}")
+                    return
+                    
+                # Additional check: ensure we're not using more than 80% of available balance
+                max_usable = available_base * decimal.Decimal("0.8")
+                if required_quantity > max_usable:
+                    # Reduce the order size to fit within safe limits
+                    quantity = max_usable * decimal.Decimal("0.95")
+                    quote_amount = float(quantity * current_price)
+                    self.logger.debug(f"Reduced order size to {quantity} {base_currency} for safety")
             
-            # Create order
-            order_type = self._get_config(ORDER_TYPE_KEY, DEFAULT_ORDER_TYPE)
-            
-            if order_type == "market":
-                # Market order
-                order = trading_personal_data.create_order_instance(
-                    trader=self.exchange_manager.trader,
-                    order_type=trading_enums.TraderOrderType.BUY_MARKET if is_buy else trading_enums.TraderOrderType.SELL_MARKET,
-                    symbol=symbol,
-                    current_price=current_price,
-                    quantity=quantity,
-                    price=current_price
-                )
-                order_price = current_price
-                # Disable instant fill for market orders too
-                order.allow_instant_fill = False
-            else:
-                # Limit order with price offset
-                price_offset = self._get_config(PRICE_OFFSET_PERCENT_KEY, DEFAULT_PRICE_OFFSET_PERCENT) / 100
-                
-                if is_buy:
-                    # Buy slightly below current price
-                    order_price = current_price * (1 - decimal.Decimal(str(price_offset)))
-                else:
-                    # Sell slightly above current price
-                    order_price = current_price * (1 + decimal.Decimal(str(price_offset)))
-                
-                order = trading_personal_data.create_order_instance(
-                    trader=self.exchange_manager.trader,
-                    order_type=trading_enums.TraderOrderType.BUY_LIMIT if is_buy else trading_enums.TraderOrderType.SELL_LIMIT,
-                    symbol=symbol,
-                    current_price=current_price,
-                    quantity=quantity,
-                    price=order_price
-                )
+            # Create market order only
+            order = trading_personal_data.create_order_instance(
+                trader=self.exchange_manager.trader,
+                order_type=trading_enums.TraderOrderType.BUY_MARKET if is_buy else trading_enums.TraderOrderType.SELL_MARKET,
+                symbol=symbol,
+                current_price=current_price,
+                quantity=quantity,
+                price=current_price
+            )
+            order_price = current_price
             
             # Disable instant fill to avoid issues in simulator (like market making does)
             order.allow_instant_fill = False
             
-            # Execute the order
-            self.logger.debug(f"Creating order: {order}")
+            # Execute the order with better monitoring
+            action = "BUY" if is_buy else "SELL"
+            self.logger.info(f"Creating {action} order: {quantity:.6f} {base_currency} at ~{order_price:.6f} {quote_currency}")
+            
             created_order = await self.trading_mode.create_order(order)
             self.orders_placed += 1
             
             if created_order:
-                self.successful_orders += 1
-                # Update volume tracking (use order value for consistent tracking)
-                order_value = float(quantity * order_price)
-                self.current_volume += order_value
+                # Wait a moment for order to be processed
+                await asyncio.sleep(0.5)
                 
-                action = "BUY" if is_buy else "SELL"
-                progress_percent = ((self.current_volume / self.target_volume) * 100 
-                                  if self.target_volume and self.target_volume > 0 else 0)
-                self.logger.info(
-                    f"✅ Volume Boost {action}: {quantity:.6f} {base_currency} "
-                    f"at {order_price:.6f} {quote_currency} "
-                    f"(Progress: {self.current_volume:.2f}/{self.target_volume:.2f} = {progress_percent:.1f}%)"
-                )
+                # Check order status to see if it was actually filled
+                if hasattr(created_order, 'status'):
+                    order_status = created_order.status
+                    self.logger.debug(f"Order status after creation: {order_status}")
+                    
+                    if order_status in [trading_enums.OrderStatus.FILLED, trading_enums.OrderStatus.PARTIALLY_FILLED]:
+                        self.successful_orders += 1
+                        self.consecutive_failures = 0  # Reset failure counter on success
+                        # Update volume tracking (use actual filled amount if available)
+                        filled_quantity = getattr(created_order, 'filled_quantity', quantity)
+                        filled_price = getattr(created_order, 'filled_price', order_price)
+                        order_value = float(filled_quantity * filled_price)
+                        self.current_volume += order_value
+                        
+                        progress_percent = ((self.current_volume / self.target_volume) * 100 
+                                          if self.target_volume and self.target_volume > 0 else 0)
+                        self.logger.info(
+                            f"✅ Volume Boost {action}: {filled_quantity:.6f} {base_currency} "
+                            f"at {filled_price:.6f} {quote_currency} "
+                            f"(Progress: {self.current_volume:.2f}/{self.target_volume:.2f} = {progress_percent:.1f}%)"
+                        )
+                    elif order_status in [trading_enums.OrderStatus.CANCELED, trading_enums.OrderStatus.REJECTED]:
+                        self.failed_orders += 1
+                        self.consecutive_failures += 1
+                        self.last_failure_time = time.time()
+                        self.logger.warning(f"❌ Order {action} was {order_status.value} by exchange for {symbol}")
+                    else:
+                        # Order is still pending/open
+                        self.successful_orders += 1  # Count as successful creation even if pending
+                        self.consecutive_failures = 0  # Reset failure counter on successful creation
+                        order_value = float(quantity * order_price)
+                        self.current_volume += order_value
+                        
+                        progress_percent = ((self.current_volume / self.target_volume) * 100 
+                                          if self.target_volume and self.target_volume > 0 else 0)
+                        self.logger.info(
+                            f"⏳ Volume Boost {action}: {quantity:.6f} {base_currency} "
+                            f"at {order_price:.6f} {quote_currency} [Status: {order_status.value}] "
+                            f"(Progress: {self.current_volume:.2f}/{self.target_volume:.2f} = {progress_percent:.1f}%)"
+                        )
+                else:
+                    # Fallback for orders without status attribute
+                    self.successful_orders += 1
+                    self.consecutive_failures = 0  # Reset failure counter on successful creation
+                    order_value = float(quantity * order_price)
+                    self.current_volume += order_value
+                    
+                    progress_percent = ((self.current_volume / self.target_volume) * 100 
+                                      if self.target_volume and self.target_volume > 0 else 0)
+                    self.logger.info(
+                        f"✅ Volume Boost {action}: {quantity:.6f} {base_currency} "
+                        f"at {order_price:.6f} {quote_currency} "
+                        f"(Progress: {self.current_volume:.2f}/{self.target_volume:.2f} = {progress_percent:.1f}%)"
+                    )
             else:
                 self.failed_orders += 1
-                self.logger.warning(f"Order creation returned None for {symbol}")
+                self.consecutive_failures += 1
+                self.last_failure_time = time.time()
+                self.logger.warning(f"❌ Order creation returned None for {symbol} {action}")
             
         except trading_errors.MissingMinimalExchangeTradeVolume as e:
             self.failed_orders += 1
+            self.consecutive_failures += 1
+            self.last_failure_time = time.time()
             self.logger.debug(f"Trade amount too small for {symbol}: {e}")
         except trading_errors.NotSupported as e:
             self.failed_orders += 1
+            self.consecutive_failures += 1
+            self.last_failure_time = time.time()
             self.logger.warning(f"Order type not supported for {symbol}: {e}")
+        except trading_errors.InsufficientFunds as e:
+            self.failed_orders += 1
+            self.consecutive_failures += 1
+            self.last_failure_time = time.time()
+            self.logger.warning(f"Insufficient funds for {symbol} {action}: {e}")
         except Exception as e:
             self.failed_orders += 1
-            self.logger.error(f"Error executing volume boost trade for {symbol}: {e}", exc_info=True)
+            self.consecutive_failures += 1
+            self.last_failure_time = time.time()
+            error_msg = str(e).lower()
+            
+            # Provide more specific error messages
+            if "insufficient" in error_msg or "balance" in error_msg:
+                self.logger.warning(f"Balance issue for {symbol} {action}: {e}")
+            elif "canceled" in error_msg or "cancelled" in error_msg:
+                self.logger.warning(f"Order canceled by exchange for {symbol} {action}: {e}")
+            elif "reject" in error_msg or "invalid" in error_msg:
+                self.logger.warning(f"Order rejected by exchange for {symbol} {action}: {e}")
+            elif "rate" in error_msg or "limit" in error_msg:
+                self.logger.warning(f"Rate limit reached for {symbol}: {e}")
+                await asyncio.sleep(10)  # Longer pause for rate limits
+                return
+            else:
+                self.logger.error(f"Unexpected error executing volume boost trade for {symbol}: {e}", exc_info=True)
+            
             # Add a longer pause on errors to prevent spam
             await asyncio.sleep(5)
 

@@ -68,7 +68,7 @@ python start.py tentacles --single-tentacle-install "path/to/volume_booster_trad
 
 ### Basic Setup
 1. **Volume Target**: Set your desired volume (e.g., 50000 USDT)
-2. **Order Type**: Choose "limit" for better price control or "market" for speed
+2. **Order Type**: Market orders only for immediate execution at current price
 3. **Frequency**: Start conservative (5-15 seconds) and adjust as needed
 4. **Amounts**: Set within your budget and exchange minimums
 

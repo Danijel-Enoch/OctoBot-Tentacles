@@ -69,14 +69,14 @@ try:
     test_config = {
         'volume_target': 1000.0,
         'enable_volume_booster': True,
-        'order_type': 'limit'
+        'order_type': 'market'
     }
     
     consumer._config_cache = test_config
     
     assert consumer._get_config('volume_target') == 1000.0
     assert consumer._get_config('enable_volume_booster') is True
-    assert consumer._get_config('order_type') == 'limit'
+    assert consumer._get_config('order_type') == 'market'
     assert consumer._get_config('nonexistent', 'default') == 'default'
     
     print("✅ Configuration methods work correctly")

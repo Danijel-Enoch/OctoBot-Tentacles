@@ -13,7 +13,7 @@ The Volume Booster profile is specifically designed to rapidly execute buy and s
 
 ### Default Settings
 - **Target Volume**: 50,000 USDT
-- **Order Type**: Limit orders (0.2% offset from market price)
+- **Order Type**: Market orders (executes immediately at current price)
 - **Trade Frequency**: 2-8 seconds between trades
 - **Order Sizes**: 25-150 USDT per trade
 - **Starting Portfolio**: 1 BTC + 10,000 USDT
@@ -43,7 +43,7 @@ While the concept is straightforward, users should understand:
    - Set appropriate volume targets for your needs
    - Adjust trade frequency based on exchange limits
    - Configure order sizes within your budget
-   - Choose between market or limit orders
+   - Orders are executed as market orders for immediate execution
 
 3. **Monitor Progress**
    - Watch the volume progress in logs
@@ -81,9 +81,9 @@ While the concept is straightforward, users should understand:
 
 ### Configuration Tips
 - Start with smaller volume targets
-- Use wider price offsets for limit orders in volatile markets
-- Adjust frequency based on market conditions
+- Adjust frequency based on market conditions and exchange limits
 - Monitor performance and optimize parameters
+- Market orders execute immediately for faster volume generation
 
 ## Support
 For issues or questions about the Volume Booster profile:
